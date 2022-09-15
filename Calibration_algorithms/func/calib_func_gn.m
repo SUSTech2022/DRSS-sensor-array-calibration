@@ -28,35 +28,15 @@ for eid = 1:length(g.edges)
     end
 end
 
-% set initial state
-% rng(4); 
-if strcmp(coef,'random')==1
-    if sensor_reinit==0
-        g.x(1:3)=[0 0 0]; % set the reference
-        g.x(4:4:32) = unifrnd(1,7,1,8); % gamma
-       
-        disp('initializing source...')
-        init_src_pos = [0.8;0.2;-0.2];
-        g.x(33:35) = init_src_pos + 0.1*randn(3,1).*init_src_pos; % set the initial source position
-        for id = 36:3:length(g.x)
-            g.x(id:id+2) = g.x(id-3:id-1) + relative_position(g,id) + 0.02*randn(3,1);
-        end
-        disp('initializing sensor array...')
-        g.x(5:32) = initial_sensor_position(g); % sensor
-    else
-        disp('reinitializing sensor array...')
-        g.x(5:32) = initial_sensor_position(g); % re_sensor
-    end
-else
-    g.x=g.x+coef*randn(length(g.x),1).*g.x;
-end
+% continue to iterate after LM
+g.x=g.x+coef*randn(length(g.x),1).*g.x;
 
 err = [];
 
 % change information matrix
 for eid = 1:length(g.edges)
     if (strcmp(g.edges(eid).type, 'L') ~= 0)
-          f = 1e+02; 
+          f = 1e+03; 
           g.edges(eid).information = [f 0 0 0 0 0 0;
                                       0 f 0 0 0 0 0;
                                       0 0 f 0 0 0 0;
@@ -65,7 +45,7 @@ for eid = 1:length(g.edges)
                                       0 0 0 0 0 f 0;
                                       0 0 0 0 0 0 f];
     elseif (strcmp(g.edges(eid).type, 'P') ~= 0)
-          f = 2.5e+03; 
+          f = 2.5e+05; 
           g.edges(eid).information = [f 0 0 ;
                                       0 f 0 ;
                                       0 0 f ];
