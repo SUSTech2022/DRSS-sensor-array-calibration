@@ -1,4 +1,4 @@
-# DRSS_sensor_array_calibration
+# DRSS sensor array calibration
 ## Observability Analysis
 Run the *OA_main.m* file in the *Observability_analysis* folder.
     For each scenario inside, uncomment the code and run to examine the results separately.
