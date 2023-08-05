@@ -1,5 +1,5 @@
 % plot a 3D SLAM graph
-function plot_graph_with_cov(g, iteration, H)
+function plot_graph_with_cov(g)
 
 % 判断参数个数
 if nargin<2  
@@ -32,8 +32,8 @@ if (length(p) > 0)
   pIdxX = p+1;
   pIdxY = p+2;
   pIdxZ = p+3;
-  plot3(g.x(pIdxX), g.x(pIdxY), g.x(pIdxZ), 'LineStyle','none','Marker','o','MarkerSize', 4,'MarkerEdgeColor','c','LineWidth',1);
-  plot3(g.x_gt(pIdxX), g.x_gt(pIdxY), g.x_gt(pIdxZ),'Color','b', 'LineStyle','-','Marker','x', 'MarkerSize',6,'MarkerEdgeColor','b','LineWidth',0.5);
+  plot3(g.x(pIdxX), g.x(pIdxY), g.x(pIdxZ), 'LineStyle','-','Marker','o','MarkerSize', 4,'MarkerEdgeColor','c','LineWidth',1);
+  plot3(g.x_gt(pIdxX), g.x_gt(pIdxY), g.x_gt(pIdxZ),'Color','b', 'LineStyle','none','Marker','x', 'MarkerSize',6,'MarkerEdgeColor','b','LineWidth',0.5);
 end
 
 

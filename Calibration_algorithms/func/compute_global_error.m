@@ -16,7 +16,7 @@ for eid = 1:length(g.edges)
     % compute the error of the constraint and add it to Fx.
     % Use edge.measurement and edge.information to access the
     % measurement and the information matrix respectively.
-    e_ij = (x2 - x1) - edge.measurement;
+    e_ij = (x2 - x1) - edge.measurement; %误差 = 估计值-测量值
     e_ls_ij = e_ij' * edge.information * e_ij;
     Fx = Fx + e_ls_ij;
 
@@ -34,8 +34,8 @@ for eid = 1:length(g.edges)
         d_nk=sqrt(  (x(1)-l(4*n+1))^2 + (x(2)-l(4*n+2))^2 + (x(3)-l(4*n+3))^2  );
         d_1k=sqrt((x(1))^2 + (x(2))^2 + (x(3))^2);
         p = -10*l(4*n+4)*log10(d_nk/d_1k);
-        noise = 0*randn(1,1)*p;  
-        e_il(n)= p+noise - edge.measurement(n);
+        noise = 0*randn(1,1);  
+        e_il(n)= p+noise - edge.measurement(n); % 误差 = 估计值-测量值
     end
    
     e_ls_il = e_il' * edge.information * e_il;

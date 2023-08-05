@@ -9,22 +9,30 @@ display_norm_dx_on = 0;
 % maximum allowed dx
 EPSILON = input.eps;
 
+% need to calculate real measurements (for simulation only)?
+cal = false;
+
 % load the graph into the variable "g"
 load(input.graph_file);
 
+measurements=[];
+
 % calculate real measurements
-for eid = 1:length(g.edges)
-    if (strcmp(g.edges(eid).type, 'L') ~= 0)
-        x = g.x_gt(g.edges(eid).toIdx:g.edges(eid).toIdx+2);   % the robot pose
-        l = g.x_gt(g.edges(eid).fromIdx:g.edges(eid).fromIdx+(4*g.M-1));     % the landmark
-        p_k=[];
-        for n = 1:(g.M-1)
-            d_nk=sqrt( (x(1)-l(4*n+1))^2 + (x(2)-l(4*n+2))^2 + (x(3)-l(4*n+3))^2  );
-            d_1k=sqrt((x(1))^2 + (x(2))^2 + (x(3))^2);
-            p_nk= -10*l(4*n+4)*log10(d_nk/d_1k)+0.1*randn(1,1);
-            p_k=[p_k;p_nk];
+if (cal)
+    for eid = 1:length(g.edges)
+        if (strcmp(g.edges(eid).type, 'L') ~= 0)
+            x = g.x_gt(g.edges(eid).toIdx:g.edges(eid).toIdx+2);   % the robot pose
+            l = g.x_gt(g.edges(eid).fromIdx:g.edges(eid).fromIdx+(4*g.M-1));     % the landmark
+            p_k=[];
+            for n = 1:(g.M-1)
+                d_nk=sqrt( (x(1)-l(4*n+1))^2 + (x(2)-l(4*n+2))^2 + (x(3)-l(4*n+3))^2  );
+                d_1k=sqrt((x(1))^2 + (x(2))^2 + (x(3))^2);
+                p_nk= -10*l(4*n+4)*log10(d_nk/d_1k)+0*randn(1,1); %方差
+                p_k=[p_k;p_nk];
+            end
+            g.edges(eid).measurement = p_k;
+            measurements = [measurements,p_k];
         end
-        g.edges(eid).measurement = p_k;
     end
 end
 
@@ -33,19 +41,27 @@ end
 if strcmp(coef,'random')==1
     if sensor_reinit==0
         g.x(1:3)=[0 0 0]; % set the reference
-        g.x(4:4:32) = unifrnd(1,7,1,8); % gamma
-       
+
+
+        % 初始化PLE
+        init_gamma = unifrnd(2,3); % unifrnd(1,7) % 和initial_sensor_position同步修改
+        for k=4:4:4*g.M
+            g.x(k)=init_gamma;
+        end
+
+
         disp('initializing source...')
-        init_src_pos = [0.8;0.2;-0.2];
-        g.x(33:35) = init_src_pos + 0.1*randn(3,1).*init_src_pos; % set the initial source position
-        for id = 36:3:length(g.x)
-            g.x(id:id+2) = g.x(id-3:id-1) + relative_position(g,id) + 0.02*randn(3,1);
+        init_src_pos = g.x_gt(4*g.M+1:4*g.M+3);  % 信号源起点
+%         g.x(4*g.M+1:4*g.M+3) = init_src_pos + 0.01*randn(3,1).*init_src_pos; % set the initial source position
+        g.x(4*g.M+1:4*g.M+3) = init_src_pos + 0.01*randn(3,1);
+        for id = 4*g.M+4:3:length(g.x)
+            g.x(id:id+2) = g.x(id-3:id-1) + relative_position(g,id) + 0.01*randn(3,1).*relative_position(g,id);
         end
         disp('initializing sensor array...')
-        g.x(5:32) = initial_sensor_position(g); % sensor
+        g.x(5:4*g.M) = initial_sensor_position(g); % sensor
     else
         disp('reinitializing sensor array...')
-        g.x(5:32) = initial_sensor_position(g); % re_sensor
+        g.x(5:4*g.M) = initial_sensor_position(g); % re_sensor
     end
 else
     % do not use the above initializing procedure
@@ -60,19 +76,11 @@ err = [];
 % change information matrix
 for eid = 1:length(g.edges)
     if (strcmp(g.edges(eid).type, 'L') ~= 0)
-          f = 1e+02; 
-          g.edges(eid).information = [f 0 0 0 0 0 0;
-                                      0 f 0 0 0 0 0;
-                                      0 0 f 0 0 0 0;
-                                      0 0 0 f 0 0 0;
-                                      0 0 0 0 f 0 0;
-                                      0 0 0 0 0 f 0;
-                                      0 0 0 0 0 0 f];
+          f = 1e+00; % DRSS的方差的倒数 比取1e+02更好
+          g.edges(eid).information = f*eye(g.M-1);
     elseif (strcmp(g.edges(eid).type, 'P') ~= 0)
-          f = 2.5e+03; 
-          g.edges(eid).information = [f 0 0 ;
-                                      0 f 0 ;
-                                      0 0 f ];
+          f = 2.5e+02; %里程计方差的倒数 2.5e+03
+          g.edges(eid).information = f*eye(3);
     end
 end
 
@@ -88,6 +96,17 @@ i = 0;
 [H,b] = linearize_and_solve_with_H(g);
 u = 1e-20;
 v = 2;
+g.x_temp = g.x;
+
+if numIterations == 0
+    disp('numIterations == 0');
+    % plot the estimated state of the graph
+    plot_graph_with_cov(g);
+    legend('Sensor pos. est.','Sensor pos. ground truth','Signal source est.', 'Signal source ground truth','Location','northeast');
+    title(input.fig.title);
+    view(input.fig.view_a, input.fig.view_e);
+end
+
 
 tic
 if numIterations>0
@@ -122,30 +141,30 @@ if numIterations>0
              
       rho = [];
       if length(err)>1 
-            rho = (err(length(err)-1)-err(length(err)))/(dx'*(u*dx-b));
-
+          rho = (err(length(err)-1)-err(length(err)))/(dx'*(u*dx-b));
+          
           if rho>0.75
-%               disp([num2str(rho),' rho>0.75'])
-                u = u * max(1/3, 1-2*(rho-1)^3);
-                v = 2;
+              u = u * max(1/3, 1-2*(rho-1)^3);
+              v = 2;
           elseif rho<0.25 && rho>0
-%               disp([num2str(rho),' 0<rho<0.25'])
-                u = u * v;
-                v = v * 2;
+              u = u * v;
+              v = v * 2;
           elseif rho < 0 && rho > -2
-%               disp([num2str(rho),' -2<rho<0'])
-                u = u * 2;
-                err = err(1:end-1); % do not iterate
-                continue
+              u = u * 2;
+              err = err(1:end-1); % do not iterate
+              continue
           elseif rho<-2
-%               disp([num2str(rho),' rho<-2,break'])
+%             disp([num2str(rho),' rho<-2,break'])
               break
           end
+
       end
       
       y = [y;norm(dx)];
+
       % TODO: apply the solution to the state vector g.x
       g.x = g.x + dx;
+
 %       disp(['rho = ',num2str(rho)]);
 
       % compute the rotation matrix
@@ -189,15 +208,16 @@ toc
 if num>0
     gamma = [];
     sum = 0;
-    for i=2:g.M
+    for i=2:g.M  
         sum = sum+g.x(4*i);
         gamma = [gamma g.x(4*i)];
     end
+ 
     disp(['gamma = ',num2str(gamma)]);
-    disp(['mean_gamma =' ,num2str(sum/7)]);
+    disp(['mean_gamma =' ,num2str(sum/(g.M-1))]);
 
     % plot the estimated state of the graph
-    plot_graph_with_cov(g, num, H);
+    plot_graph_with_cov(g);
     legend('Sensor pos. est.','Sensor pos. ground truth','Signal source est.', 'Signal source ground truth','Location','northeast');
     title(input.fig.title);
     view(input.fig.view_a, input.fig.view_e);
@@ -206,4 +226,6 @@ if num>0
 end
 
 end
+
+
 
